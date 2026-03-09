@@ -1,0 +1,397 @@
+<view class="container">
+  <view class="header">
+    <text class="title">跑步分析助手</text>
+    <text class="subtitle">专业跑步分析与记录</text>
+  </view>
+
+  <!-- 天气和跑步状态卡片容器 -->
+  <view class="dashboard-container">
+    <!-- 天气信息卡片 -->
+    <view class="weather-card" wx:if="{{weatherData}}">
+      <view class="weather-header">
+        <view class="weather-basic">
+          <text class="temperature">{{weatherData.temperature}}°C</text>
+          <view class="weather-condition">
+            <text class="condition-text" user-select>{{weatherData.condition}}</text>
+            <text class="location-text">当前位置</text>
+          </view>
+        </view>
+        <view class="weather-icon">
+          <icon type="{{getWeatherIcon(weatherData.condition)}}" size="60" color="#007AFF"></icon>
+        </view>
+      </view>
+      
+      <view class="weather-details">
+        <view class="detail-item">
+          <text class="detail-label">湿度</text>
+          <text class="detail-value" user-select>{{weatherData.humidity}}%</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">风速</text>
+          <text class="detail-value" user-select>{{weatherData.windSpeed}}级</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">空气质量</text>
+          <text class="detail-value {{getAirQualityClass(weatherData.airQuality)}}" user-select>{{weatherData.airQuality}}</text>
+        </view>
+      </view>
+      
+      <view class="running-suitability">
+        <view class="suitability-label">跑步适宜度</view>
+        <view class="suitability-rating">
+          <view class="rating-stars">
+            <block wx:for="{{5}}" wx:key="index">
+              <icon type="star" size="24" color="{{index < runningSuitability.score ? '#FFD700' : '#E0E0E0'}}"></icon>
+            </block>
+          </view>
+          <text class="rating-text {{getSuitabilityClass(runningSuitability.score)}}" user-select>{{runningSuitability.text}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 跑步状态卡片 -->
+    <view class="running-status-card">
+      <view class="running-status-header">
+        <icon type="run" size="40" color="#4CAF50"></icon>
+        <text class="running-status-title">跑步状态</text>
+      </view>
+      
+      <view class="weekly-stats">
+        <view class="stat-item">
+          <text class="stat-value">{{weeklyStats.totalDistance || '0.0'}}</text>
+          <text class="stat-label">周跑量(km)</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{weeklyStats.runCount || '0'}}</text>
+          <text class="stat-label">本周次数</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{weeklyStats.avgPace || '0'}}</text>
+          <text class="stat-label">平均配速</text>
+        </view>
+      </view>
+      
+      <view class="last-run-info" wx:if="{{weeklyStats.lastRunDate}}">
+        <view class="last-run-header">
+          <icon type="time" size="24" color="#666"></icon>
+          <text class="last-run-title">最近一次跑步</text>
+        </view>
+        <view class="last-run-details">
+          <text class="last-run-date">{{weeklyStats.lastRunDate}}</text>
+          <text class="last-run-distance">{{weeklyStats.lastRunDistance}}公里</text>
+        </view>
+        <view class="last-run-stats">
+          <text class="last-run-duration">时长: {{weeklyStats.lastRunDuration}}</text>
+          <text class="last-run-pace">配速: {{weeklyStats.lastRunPace}}/公里</text>
+        </view>
+      </view>
+      
+      <view class="no-run-info" wx:if="{{!weeklyStats.lastRunDate}}">
+        <text class="no-run-text">暂无跑步记录</text>
+        <text class="no-run-desc">开始您的第一次跑步吧</text>
+      </view>
+      
+      <button class="start-running-btn" bindtap="startRunningFromDashboard" disabled="{{isRunning}}">
+        <icon type="run" size="32" color="white" wx:if="{{!isRunning}}"></icon>
+        <icon type="pause" size="32" color="white" wx:if="{{isRunning}}"></icon>
+        <text>{{isRunning ? '跑步中...' : '开始跑步'}}</text>
+      </button>
+    </view>
+  </view>
+
+  <!-- 加载天气时的占位符 -->
+  <view class="weather-loading" wx:if="{{!weatherData && isLoadingWeather}}">
+    <view class="loading-spinner small"></view>
+    <text>正在获取天气信息...</text>
+  </view>
+
+  <!-- 全局跑步建议卡片 -->
+  <view class="global-suggestion-card" wx:if="{{runningSuggestion && !isLoadingSuggestion}}">
+    <view class="suggestion-header">
+      <icon type="info" size="32" color="#007AFF"></icon>
+      <text class="suggestion-title">今日跑步建议</text>
+      <icon type="refresh" size="28" color="#999" bindtap="refreshSuggestion"></icon>
+    </view>
+    <view class="suggestion-content">
+      <text class="suggestion-text" user-select>{{runningSuggestion}}</text>
+    </view>
+    <view class="suggestion-footer">
+      <text class="suggestion-source">基于天气、历史数据及AI分析</text>
+    </view>
+  </view>
+
+  <!-- 加载建议时的占位符 -->
+  <view class="suggestion-loading" wx:if="{{isLoadingSuggestion}}">
+    <view class="loading-spinner small"></view>
+    <text>AI正在生成跑步建议...</text>
+  </view>
+
+  <!-- 功能选项卡 -->
+  <view class="tab-container">
+    <view class="tab-item {{currentTab === 0 ? 'active' : ''}}" bindtap="switchTab" data-tab="0">
+      <text>姿态分析</text>
+    </view>
+    <view class="tab-item {{currentTab === 1 ? 'active' : ''}}" bindtap="switchTab" data-tab="1">
+      <text>跑步记录</text>
+    </view>
+    <view class="tab-item {{currentTab === 2 ? 'active' : ''}}" bindtap="switchTab" data-tab="2">
+      <text>AI健康咨询</text>
+    </view>
+  </view>
+
+  <!-- 姿态分析页面 -->
+  <view class="tab-content" wx:if="{{currentTab === 0}}">
+    <view class="upload-section">
+      <view class="upload-btn" bindtap="chooseVideo">
+        <icon type="upload" size="40" color="#007AFF"></icon>
+        <text class="btn-text">选择视频文件</text>
+      </view>
+      
+      <view class="or-divider">
+        <text>或</text>
+      </view>
+      
+      <view class="record-btn" bindtap="startRecord">
+        <icon type="record" size="40" color="#FF3B30"></icon>
+        <text class="btn-text">录制跑步视频</text>
+      </view>
+    </view>
+
+    <view class="video-preview" wx:if="{{videoSrc}}">
+      <video src="{{videoSrc}}" controls autoplay binderror="onVideoError"></video>
+      <view class="video-actions">
+        <button class="action-btn" bindtap="uploadVideo" disabled="{{isLoading}}">
+          <icon type="upload" size="24" color="white" wx:if="{{!isLoading}}"></icon>
+          <view class="loading-spinner small" wx:if="{{isLoading}}"></view>
+          <text>{{isLoading ? '分析中...' : '上传分析'}}</text>
+        </button>
+        <button class="action-btn secondary" bindtap="clearVideo">重新选择</button>
+      </view>
+    </view>
+
+    <!-- 修复后的分析结果部分 - 已删除语音功能 -->
+    <view class="result-section" wx:if="{{analysisResult}}">
+      <view class="section-title">分析结果</view>
+      <view class="result-card">
+        <!-- 结果状态 -->
+        <view class="result-status {{analysisResult.isGood ? 'good' : 'bad'}}">
+          <icon type="{{analysisResult.isGood ? 'success' : 'warn'}}" size="24" color="white"></icon>
+          {{analysisResult.isGood ? '良好状态' : '需要改进'}}
+        </view>
+
+        <!-- 分析结果详情 -->
+        <view class="result-details">
+          <rich-text nodes="{{analysisResult.details}}"></rich-text>
+        </view>
+
+        <!-- 警告信息 -->
+        <view class="result-warnings" wx:if="{{analysisResult.warnings && analysisResult.warnings.length > 0}}">
+          <view class="warning-header">
+            <icon type="warn" size="20" color="#FF6B35"></icon>
+            <text class="warning-title">注意事项</text>
+          </view>
+          <view class="warning-list">
+            <view class="warning-item" wx:for="{{analysisResult.warnings}}" wx:key="index">
+              <text class="warning-text">{{item}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 添加占位内容 -->
+    <view class="placeholder-content" wx:if="{{!videoSrc && !analysisResult}}">
+      <icon type="video" size="80" color="#ccc"></icon>
+      <text class="placeholder-text">选择或录制跑步视频进行姿态分析</text>
+      <text class="placeholder-desc">我们将分析您的跑步姿势，提供专业改进建议</text>
+    </view>
+  </view>
+  
+  <!-- 跑步记录页面 -->
+  <scroll-view class="tab-content running-tab" wx:if="{{currentTab === 1}}" scroll-y="true" style="height: {{scrollHeight}}px;">
+    <!-- 跑步控制面板 -->
+    <view class="running-controls">
+      <view class="running-stats">
+        <view class="stat-item">
+          <text class="stat-value">{{runningData.distance || '0.00'}}</text>
+          <text class="stat-label">公里</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{runningData.duration || '00:00'}}</text>
+          <text class="stat-label">时间</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{runningData.pace || '0'}}</text>
+          <text class="stat-label">配速</text>
+        </view>
+        <view class="stat-item">
+          <text class="stat-value">{{runningData.cadence || '0'}}</text>
+          <text class="stat-label">步频</text>
+        </view>
+      </view>
+
+      <view class="control-buttons">
+        <button 
+          class="control-btn {{isRunning ? 'pause' : 'start'}}" 
+          bindtap="{{isRunning ? 'pauseRunning' : 'startRunning'}}"
+        >
+          {{isRunning ? '暂停' : '开始跑步'}}
+        </button>
+        
+        <button 
+          class="control-btn stop" 
+          bindtap="stopRunning"
+          disabled="{{!isRunning && !isPaused}}"
+        >
+          结束
+        </button>
+        
+        <button 
+          class="control-btn secondary" 
+          bindtap="resetRunning"
+          disabled="{{isRunning}}"
+        >
+          重置
+        </button>
+      </view>
+    </view>
+
+    <!-- 地图容器 -->
+    <view class="map-container" wx:if="{{showMap && pathPolyline[0].points.length > 0}}">
+      <map 
+        id="runningMap"
+        longitude="{{currentLocation.longitude}}"
+        latitude="{{currentLocation.latitude}}"
+        scale="16"
+        show-location
+        polyline="{{pathPolyline}}"
+        style="width: 100%; height: 300rpx;"
+      ></map>
+    </view>
+
+    <!-- 添加空地图提示 -->
+    <view class="map-container" wx:if="{{showMap && pathPolyline[0].points.length === 0}}">
+      <view class="empty-map">
+        <icon type="location" size="60" color="#ccc"></icon>
+        <text>开始跑步后，地图将显示您的轨迹</text>
+      </view>
+    </view>
+
+    <!-- 详细数据 -->
+    <view class="detailed-stats" wx:if="{{runningData.distance > 0}}">
+      <view class="section-title">详细数据</view>
+      <view class="stats-grid">
+        <view class="stat-card">
+          <text class="stat-number" user-select>{{runningData.calories || 0}}</text>
+          <text class="stat-desc">卡路里(千卡)</text>
+        </view>
+        <view class="stat-card">
+          <text class="stat-number" user-select>{{runningData.steps || 0}}</text>
+          <text class="stat-desc">步数</text>
+        </view>
+        <view class="stat-card">
+          <text class="stat-number" user-select>{{runningData.avgPace || 0}}</text>
+          <text class="stat-desc">平均配速</text>
+        </view>
+        <view class="stat-card">
+          <text class="stat-number" user-select>{{runningData.avgCadence || 0}}</text>
+          <text class="stat-desc">平均步频</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 跑步历史 -->
+    <view class="running-history" wx:if="{{runningHistory.length > 0}}">
+      <view class="section-title">跑步历史</view>
+      <view class="history-list">
+        <view class="history-item" wx:for="{{runningHistory}}" wx:key="id">
+          <view class="history-header">
+            <text class="history-date" user-select>{{item.date}}</text>
+            <text class="history-distance" user-select>{{item.distance}}公里</text>
+          </view>
+          <view class="history-details">
+            <text user-select>时长: {{item.duration}}</text>
+            <text user-select>配速: {{item.avgPace}}/公里</text>
+            <text user-select>步频: {{item.avgCadence}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 空状态提示 -->
+    <view class="empty-state" wx:if="{{runningHistory.length === 0 && !isRunning && !isPaused}}">
+      <text class="empty-text">暂无跑步记录</text>
+      <text class="empty-desc">点击"开始跑步"记录您的第一次跑步</text>
+    </view>
+
+    <!-- 底部安全区域 -->
+    <view class="safe-area"></view>
+  </scroll-view>
+
+  <!-- AI健康咨询页面 -->
+  <view class="tab-content chat-tab" wx:if="{{currentTab === 2}}">
+    <view class="chat-header-info">
+      <view class="chat-title-section">
+        <icon type="message" size="40" color="#007AFF"></icon>
+        <text class="chat-title">跑步健康顾问</text>
+      </view>
+      <text class="chat-subtitle">专业跑步健康咨询与建议</text>
+    </view>
+
+    <scroll-view class="chat-messages-container" scroll-y="true" scroll-into-view="{{scrollToView}}" style="height: {{chatScrollHeight}}px;">
+      <block wx:for="{{chatMessages}}" wx:key="index">
+        <view class="message {{item.role === 'user' ? 'user-message' : 'ai-message'}}">
+          <view class="message-avatar {{item.role === 'user' ? 'user-avatar' : 'ai-avatar'}}">
+            <icon type="{{item.role === 'user' ? 'my' : 'message'}}" size="32" color="white"></icon>
+          </view>
+          <view class="message-content">
+            <text class="message-text" user-select>{{item.content}}</text>
+          </view>
+        </view>
+      </block>
+      <view id="last-message"></view>
+      
+      <!-- 空聊天状态 -->
+      <view class="empty-chat" wx:if="{{chatMessages.length === 0}}">
+        <icon type="message" size="80" color="#ccc"></icon>
+        <text class="empty-chat-title">开始咨询</text>
+        <text class="empty-chat-desc">我是您的跑步健康顾问，可以为您解答跑步姿势、训练方法、伤病预防等问题</text>
+        <view class="quick-questions">
+          <view class="quick-question" bindtap="askQuickQuestion" data-question="如何正确热身？">
+            <text>如何正确热身？</text>
+          </view>
+          <view class="quick-question" bindtap="askQuickQuestion" data-question="跑步后膝盖疼怎么办？">
+            <text>跑步后膝盖疼怎么办？</text>
+          </view>
+          <view class="quick-question" bindtap="askQuickQuestion" data-question="如何提高配速？">
+            <text>如何提高配速？</text>
+          </view>
+          <view class="quick-question" bindtap="askQuickQuestion" data-question="跑步应该注意什么？">
+            <text>跑步应该注意什么？</text>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+
+    <!-- 修复输入区域布局 -->
+    <view class="chat-input-container">
+      <input 
+        class="chat-input" 
+        placeholder="输入您的问题..." 
+        value="{{chatInput}}" 
+        bindinput="onChatInput"
+        bindconfirm="sendChatMessage"
+        disabled="{{isSending}}"
+      />
+      <button class="send-btn" bindtap="sendChatMessage" disabled="{{isSending || !chatInput.trim()}}">
+        <icon type="send" size="32" color="white" wx:if="{{!isSending}}"></icon>
+        <view class="loading-spinner small" wx:else></view>
+      </button>
+    </view>
+  </view>
+
+  <view class="loading" wx:if="{{isLoading}}">
+    <view class="loading-spinner"></view>
+    <text>正在分析中，请稍候...</text>
+  </view>
+</view>

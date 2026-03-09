@@ -1,0 +1,42 @@
+{
+  "pages": [
+    "pages/index/index"
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTitleText": "跑步姿态分析",
+    "navigationBarTextStyle": "black"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "permission": {
+    "scope.camera": {
+      "desc": "需要摄像头权限以录制跑步视频"
+    },
+    "scope.record": {
+      "desc": "需要麦克风权限以录制视频声音"
+    },
+    "scope.userLocation": {
+      "desc": "需要获取您的位置信息以记录跑步轨迹"
+    },
+    "scope.userLocationBackground": {
+      "desc": "需要后台定位权限以持续记录跑步轨迹"
+    }
+  },
+  "requiredPrivateInfos": [
+    "getLocation",
+    "onLocationChange",
+    "startLocationUpdate",
+    "chooseLocation"
+  ],
+  "requiredBackgroundModes": [
+    "location"
+  ],
+  "plugins": {},
+  "useExtendedLib": {
+    "weui": true
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "usingComponents": {}
+}
