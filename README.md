@@ -1,0 +1,2 @@
+# Deep-learning-based-running-posture-analysis-system
+本系统是一款基于Python开发的微信小程序。作品以Google开源的多媒体机器学习框架MediaPipe为核心，搭载了其专为边缘设备优化的BlazePose人体姿态估计算法，能够从输入视频中高精度、实时地识别并标注出人体的33个骨骼关键点。系统结合OpenCV库进行图像处理、角度计算与结果可视化，并利用PyQt5构建了直观易用的图形用户界面（GUI），极大降低了用户使用门槛
